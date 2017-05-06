@@ -23,7 +23,7 @@ limitations under the License. */
 #include "paddle/utils/GlobalConstants.h"
 
 #include "LayerGradUtil.h"
-#include "TestUtil.h"
+#include "paddle/testing/TestUtil.h"
 
 using namespace paddle;  // NOLINT
 using namespace std;     // NOLINT
@@ -206,8 +206,8 @@ TEST(Layer, convTransLayerFwd2) {
                  /* filter_size */ 5,
                  result);
 
-  float resultData[] = {1, 2, 2, 2, 1, 2, 4, 4, 4, 2, 2, 4, 4,
-                        4, 2, 2, 4, 4, 4, 2, 1, 2, 2, 2, 1};
+  real resultData[] = {1, 2, 2, 2, 1, 2, 4, 4, 4, 2, 2, 4, 4,
+                       4, 2, 2, 4, 4, 4, 2, 1, 2, 2, 2, 1};
   result->setData(resultData);
   doOneConvtTest(/* imgSize */ 5,
                  /* output_x */ 2,
@@ -216,8 +216,8 @@ TEST(Layer, convTransLayerFwd2) {
                  /* filter_size */ 4,
                  result);
 
-  float resultData2[] = {1, 2, 2, 2, 1, 2, 4, 4, 4, 2, 2, 4, 4,
-                         4, 2, 2, 4, 4, 4, 2, 1, 2, 2, 2, 1};
+  real resultData2[] = {1, 2, 2, 2, 1, 2, 4, 4, 4, 2, 2, 4, 4,
+                        4, 2, 2, 4, 4, 4, 2, 1, 2, 2, 2, 1};
   result->setData(resultData2);
   doOneConvtTest(/* imgSize */ 5,
                  /* output_x */ 2,
@@ -226,8 +226,8 @@ TEST(Layer, convTransLayerFwd2) {
                  /* filter_size */ 5,
                  result);
 
-  float resultData3[] = {1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 2, 2, 4,
-                         2, 2, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1};
+  real resultData3[] = {1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 2, 2, 4,
+                        2, 2, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1};
   result->setData(resultData3);
   doOneConvtTest(/* imgSize */ 5,
                  /* output_x */ 2,

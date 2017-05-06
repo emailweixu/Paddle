@@ -14,12 +14,11 @@ limitations under the License. */
 
 #pragma once
 
-#include "CommandLineParser.h"
+#include <gflags/gflags.h>
 
 DECLARE_bool(parallel_nn);
 DECLARE_int32(async_count);
 DECLARE_int32(port);
-DECLARE_int32(data_server_port);
 DECLARE_bool(use_gpu);
 DECLARE_int32(gpu_id);
 DECLARE_int32(trainer_count);

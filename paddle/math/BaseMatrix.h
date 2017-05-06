@@ -16,7 +16,7 @@ limitations under the License. */
 #include <stdint.h>
 #include <cstddef>
 #include "TensorExpression.h"
-#include "paddle/utils/TypeDefs.h"
+#include "paddle/utils/Common.h"
 
 namespace paddle {
 
@@ -544,6 +544,9 @@ public:
 
   void mulRowVector(BaseMatrixT& b);
   void divRowVector(BaseMatrixT& b);
+
+  void mulColVector(BaseMatrixT& b);
+  void divColVector(BaseMatrixT& b);
 
   void addP2P(BaseMatrixT& b);
 

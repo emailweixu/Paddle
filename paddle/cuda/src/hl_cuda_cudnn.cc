@@ -14,11 +14,10 @@ limitations under the License. */
 
 #include "hl_cuda_cudnn.h"
 #include <cudnn.h>
-#include <mutex>
+#include <gflags/gflags.h>
 #include "hl_cuda_cudnn.ph"
-#include "hl_dso_loader.h"
 #include "hl_thread.ph"
-#include "paddle/utils/CommandLineParser.h"
+#include "paddle/utils/DynamicLoader.h"
 #include "paddle/utils/Logging.h"
 
 DEFINE_int32(cudnn_conv_workspace_limit_in_mb,

@@ -18,7 +18,7 @@ limitations under the License. */
 #include <algorithm>
 #include <cstdlib>
 
-#include "TestUtil.h"
+#include "paddle/testing/TestUtil.h"
 #include "paddle/trainer/Trainer.h"
 #include "paddle/utils/Stat.h"
 
@@ -114,7 +114,7 @@ void calcGradient(DataIn& in, DataOut& out, const std::string& configPath) {
       parameters[i]->getBuf(PARAMETER_VALUE)->copyFrom(*in.paraValues[i]);
     }
   }
-  gradientMachine->start(trainer.getConfig(), nullptr);
+  gradientMachine->start();
   gradientMachine->forward(in.inArgs, &outArgs, PASS_TRAIN);
   for (size_t i = 0; i < in.outGrads.size(); i++) {
     // If the all the layers in the config have no parameters, also

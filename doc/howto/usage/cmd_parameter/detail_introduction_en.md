@@ -73,7 +73,7 @@
   - type: bool (default: 0).
 
 * `--load_missing_parameter_strategy`
-  - Specify the loading operation when model file is missing. Now support fail/rand/zere three operations.
+  - Specify the loading operation when model file is missing. Now support fail/rand/zero three operations.
     - `fail`: program will exit.
     - `rand`: uniform or normal distribution according to **initial\_strategy** in network config. Uniform range is: **[mean - std, mean + std]**, where mean and std are configures in trainer config.
     - `zero`: all parameters are zero.
@@ -118,11 +118,11 @@
   - type: int32 (default: 0).
 
 * `--test_wait`
-  - Whether to wait for parameter per pass if not exist. If set test_data_path in submitting environment of cluster, it will launch one process to perfom testing, so we need to set test_wait=1. Note that in the cluster submitting environment, this argument has been set True by default.
+  - Whether to wait for parameter per pass if not exist. It can be used when user launch another process to perfom testing during the training process.
   - type: bool (default: 0).
 
 * `--model_list`
-  - File that saves the model list when testing. It was set automatically when using cluster submitting environment after setting model_path.
+  - File that saves the model list when testing. 
   - type: string (default: "", null).
 
 * `--predict_output_dir`
@@ -184,15 +184,6 @@
   - Specify shared dynamic library. It can be defined out of paddle by user.
   - type: string (default: "", null).
 
-## Metric Learning
-* `--external`
-   - Whether to use external machine for metric learning.
-   - type: bool (default: 0).
-
-* `--data_server_port`
-  - Listening port for dserver (data server), dserver is mainly used in metric learning.
-  - type: int32 (default: 21134).
-
 ## DataProvider
 
 * `--memory_threshold_on_load_data`
@@ -212,7 +203,7 @@
   - type: bool (default: 0).
 
 * `--pservers`
-  - Comma separated IP addresses of pservers. It is set automatically in cluster submitting environment.
+  - Comma separated IP addresses of pservers.
   - type: string (default: "127.0.0.1").
 
 * `--port`
@@ -308,10 +299,6 @@
 
 * `--show_check_sparse_distribution_log`
   - show log details for sparse parameter distribution in pserver.
-  - type: bool (default: 0).
-
-* `--allow_inefficient_sparse_update`
-  - Whether to allow inefficient sparse update.
   - type: bool (default: 0).
 
 * `--check_sparse_distribution_batches`

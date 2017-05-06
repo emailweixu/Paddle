@@ -107,6 +107,10 @@ void ExpandConvBaseLayer::expandOneFrame(MatrixPtr image,
   int channel = isDeconv_ ? numFilters_ : channels_[inIdx];
 
   resetExpandInput(subK_[inIdx] * groups_[inIdx], subN_[inIdx]);
+
+  CHECK_EQ(image->getWidth(),
+           static_cast<size_t>(imgSizeH_[inIdx] * imgSizeW_[inIdx] * channel));
+
   real *imgData = image->getData() + startIdx * image->getWidth();
   MatrixPtr imageTmp =
       Matrix::create(imgData,
@@ -150,7 +154,7 @@ void ExpandConvBaseLayer::expandFwdOnce(MatrixPtr image,
         Matrix::create(wgtData, subM, subK, false, useGpu_);  // mark transpose
     MatrixPtr B = Matrix::create(expInData, subK, subN, false, useGpu_);
     MatrixPtr C = Matrix::create(outData, subM, subN, false, useGpu_);
-    C->mul(A, B, 1, 1);
+    C->mul(*A, *B, 1, 1);
 
     A->clear();
     B->clear();
@@ -185,7 +189,7 @@ void ExpandConvBaseLayer::bpropActs(MatrixPtr out,
       MatrixPtr C = Matrix::create(expandInData, subK, subN, false, useGpu_);
       MatrixPtr B = Matrix::create(localGradData, subM, subN, false, useGpu_);
       MatrixPtr A = Matrix::create(wgtData, subM, subK, true, useGpu_);
-      C->mul(A, B);  // mul
+      C->mul(*A, *B);  // mul
 
       // clear the temporary matrix
       A->clear();
@@ -252,7 +256,7 @@ void ExpandConvBaseLayer::bpropWeights(MatrixPtr image,
       MatrixPtr A = Matrix::create(expandInData, subK, subN, true, useGpu_);
       MatrixPtr B = Matrix::create(gradData, subM, subN, false, useGpu_);
       MatrixPtr C = Matrix::create(wGradData, subM, subK, false, useGpu_);
-      C->mul(B, A, 1, 1);
+      C->mul(*B, *A, 1, 1);
 
       A->clear();
       B->clear();

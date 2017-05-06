@@ -56,7 +56,7 @@ class RemoteParameterUpdater : public ParameterUpdater {
 public:
   RemoteParameterUpdater(
       const OptimizationConfig& config,
-      int expectedPpassCount,
+      int expectedPassCount,
       std::unique_ptr<ParameterUpdater>&& localUpdater = nullptr);
   ~RemoteParameterUpdater() {
     if (controllerThread_) {
@@ -90,7 +90,7 @@ public:
    */
   virtual void finishBatch(real cost);
   virtual void startPass();
-  virtual bool finishPass(real cost);
+  virtual bool finishPass();
 
 #ifndef PADDLE_DISABLE_TIMER
   virtual void setForwardbackwardTime(uint64_t delta) {
@@ -146,7 +146,7 @@ protected:
   BatchStatus batchStatus_;
   /// controller thread for sync-sgd
   std::unique_ptr<std::thread> controllerThread_;
-  /// passed alread finished
+  /// passed already finished
   int64_t passCount_;
   /// expected passes to finished
   int64_t expectedPassCount_;
@@ -281,7 +281,7 @@ public:
   /// send all sparse related parameters to all pservers
   virtual void finishBatch(real cost);
   virtual void startPass();
-  virtual bool finishPass(real cost);
+  virtual bool finishPass();
 
   virtual void apply();
   virtual void restore();

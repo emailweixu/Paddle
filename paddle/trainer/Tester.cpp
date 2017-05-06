@@ -208,7 +208,7 @@ real Tester::forwardOneBatch(const DataBatch& dataBatch,
     return 0.0;  // In this case, there is no meaning to calculate cost
   }
 
-  return Argument::sumCosts(outArgs);
+  return Argument::sum(outArgs);
 }
 
 void Tester::testOnePassBatch(int passId) {
@@ -257,7 +257,7 @@ void Tester::test() {
   CHECK(testDataProvider_) << "TestData is not specified";
   testDataProvider_->setSkipShuffle();
   testDataProvider_->reset();
-  gradientMachine_->start(*config_, testDataProvider_);
+  gradientMachine_->start();
 
   // For evaluation
   std::vector<std::string> modelList;

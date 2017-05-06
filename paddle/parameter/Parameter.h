@@ -26,10 +26,10 @@ limitations under the License. */
 #include "ParameterUpdaterHook.h"
 #include "paddle/math/Matrix.h"
 #include "paddle/math/Vector.h"
+#include "paddle/utils/Common.h"
 #include "paddle/utils/GlobalConstants.h"
 #include "paddle/utils/Locks.h"
 #include "paddle/utils/ThreadLocal.h"
-#include "paddle/utils/TypeDefs.h"
 #include "paddle/utils/Util.h"
 
 namespace paddle {
@@ -222,29 +222,6 @@ public:
   void clearValueUpdated() { updated_ = false; }
 
   bool isValueUpdated() const { return updated_; }
-
-  /**
-   * Update bufs_[PARAMETER_VALUE] using bufs_[PARAMETER_GRADIENT]
-   */
-  void updateWithGradient(real learningRate);
-
-  /**
-   * Update bufs_[PARAMETER_VALUE] using sparse row grad matrix.
-   *
-   * @see SparseRowCpuMatrix::sgdUpdate for more information.
-   */
-  void updateWithGradient(real learningRate,
-                          MatrixPtr gradMat,
-                          IVectorPtr t0,
-                          int currentTime,
-                          bool fini = false);
-
-  /**
-   * This function is used to calculate multiple gpus, but only as a candidate
-   */
-  void updateWithGradient(real learningRate,
-                          VectorPtr grad,
-                          bool normalUpdate = true);
 
   /**
    * Save parameter value to a file

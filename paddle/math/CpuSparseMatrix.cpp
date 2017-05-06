@@ -163,15 +163,16 @@ MatrixPtr CpuSparseMatrix::getTranspose() {
 
 SparseValueType CpuSparseMatrix::getValueType() { return valueType_; }
 
-void CpuSparseMatrix::mul(MatrixPtr a, MatrixPtr b, real scaleAB, real scaleT) {
+void CpuSparseMatrix::mul(const Matrix& a,
+                          const Matrix& b,
+                          real scaleAB,
+                          real scaleT) {
   CHECK(!isTransposed()) << "Not supported";
+  const auto a_ptr = dynamic_cast<const CpuMatrix*>(&a);
+  const auto b_ptr = dynamic_cast<const CpuMatrix*>(&b);
 
-  if (dynamic_cast<CpuMatrix*>(a.get()) && dynamic_cast<CpuMatrix*>(b.get())) {
-    CpuMatrix::mul(dynamic_cast<CpuMatrix*>(a.get()),
-                   dynamic_cast<CpuMatrix*>(b.get()),
-                   this,
-                   scaleAB,
-                   scaleT);
+  if (a_ptr && b_ptr) {
+    CpuMatrix::mul((CpuMatrix*)a_ptr, (CpuMatrix*)b_ptr, this, scaleAB, scaleT);
   } else {
     LOG(FATAL) << "not supported";
   }
@@ -371,7 +372,7 @@ MatrixPtr CpuSparseMatrix::subMatrix(size_t startRow, size_t numRows) {
 }
 
 /* mem MUST be alloced outside (memAlloc=false) */
-void CpuSparseMatrix::transpose(MatrixPtr matTrans, bool memAlloc) {
+void CpuSparseMatrix::transpose(MatrixPtr& matTrans, bool memAlloc) {
   CHECK(!memAlloc);
   CpuSparseMatrix* mat = dynamic_cast<CpuSparseMatrix*>(matTrans.get());
   if (format_ == SPARSE_CSR) {
