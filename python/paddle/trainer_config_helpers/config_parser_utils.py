@@ -15,7 +15,6 @@
 import copy
 import paddle.trainer.config_parser as config_parser
 from paddle.proto.TrainerConfig_pb2 import OptimizationConfig
-
 '''
 This file is a wrapper of formal config_parser. The main idea of this file is to
 separete different config logic into different function, such as network configuration
