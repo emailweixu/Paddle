@@ -121,15 +121,15 @@ Following are cases to better explain how this works:
 Case 1:
 
 Given a 1-level LoDTensor input(X)
-    X.lod =  [[0,   2,        4]]
+    X.lod =  [[0,       2,        4]]
     X.data = [[a], [b], [c], [d]]
     X.dims = [4, 1]
 and input(Y)
-    Y.lod = [[0,    2,    4],
+    Y.lod = [[0,    2,       4],
              [0, 3, 6, 7, 8]]
 ref_level: 0
 then we get 1-level LoDTensor
-    Out.lod =  [[0,   2,        4,        6,        8]]
+    Out.lod =  [[0,       2,        4,        6,        8]]
     Out.data = [[a], [b], [a], [b], [c], [d], [c], [d]]
     Out.dims = [8, 1]
 
@@ -140,11 +140,11 @@ Given 1-level LoDTensor input(X)
     X.data = [[a], [b], [c], [d]]
     X.dims = [4, 1]
 and input(Y)
-    Y.lod = [[0,    2,    4],
+    Y.lod = [[0,    2,       4],
              [0, 3, 6, 6, 8]]
 ref_level: 0
 then we get 1-level LoDTensor
-    Out.lod =  [[0,   1,   2,        5,             8]]
+    Out.lod =  [[0,   1,   2,            5,             8]]
     Out.data = [[a], [a], [b], [c], [d], [b], [c], [d]]
     Out.dims = [8, 1]
 

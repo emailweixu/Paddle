@@ -99,9 +99,13 @@ class SequenceExpandKernel : public framework::OpKernel<T> {
       return;
     }
 
-    // x lod level is at most 1.
+    PADDLE_ENFORCE_LE(x_lod.size(), 1,
+                      "The lod level of X should be at most 1");
+    PADDLE_ENFORCE_GE(x->dims().size(), 2,
+                      "The rank of X should be at least 2");
     framework::Vector<size_t> out_lod;
     if (x_lod.size() == 1) {
+      PADDLE_ENFORCE_EQ(x_lod[0].size(), y_lod[ref_level].size());
       out_lod.push_back(0);
       int out_offset = 0;
       for (size_t i = 1; i < y_lod[ref_level].size(); ++i) {
