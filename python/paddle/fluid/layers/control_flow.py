@@ -14,7 +14,7 @@
 import contextlib
 
 from layer_function_generator import autodoc, templatedoc
-from tensor import assign, fill_constant
+from tensor import assign, fill_constant, create_tensor
 from .. import core
 from ..framework import Program, Variable, Operator
 from ..layer_helper import LayerHelper, unique_name
@@ -1320,6 +1320,7 @@ class DynamicRNN(object):
         self.status = DynamicRNN.BEFORE_RNN
         self.lod_rank_table = None
         self.max_seq_len = None
+        self.global_step_idx = None
         self.step_idx = None
         self.zero_idx = fill_constant(
             shape=[1], value=0, dtype='int64', force_cpu=True)
@@ -1358,7 +1359,7 @@ class DynamicRNN(object):
             self.cond.stop_gradient = True
             parent_block.append_op(
                 type='less_than',
-                inputs={'X': self.step_idx,
+                inputs={'X': self.global_step_idx,
                         'Y': self.max_seq_len},
                 outputs={'Out': self.cond},
                 attrs={'force_cpu': True})
@@ -1399,13 +1400,18 @@ class DynamicRNN(object):
     def block(self):
         if self.status != DynamicRNN.BEFORE_RNN:
             raise ValueError("rnn.block() can only be invoke once")
-        self.step_idx = fill_constant(
+        self.global_step_idx = fill_constant(
             shape=[1], dtype='int64', value=0, force_cpu=True)
-        self.step_idx.stop_gradient = False
         self.status = DynamicRNN.IN_RNN
         with self.while_op.block():
+            # Create a step_idx in step scope to store global_step_idx so that
+            # during backward pass the same value of step_idx can be used.
+            self.step_idx = create_tensor(dtype='int64')
+            assign(input=self.global_step_idx, output=self.step_idx)
             yield
-            increment(x=self.step_idx, value=1.0, in_place=True)
+            increment(x=self.global_step_idx, value=1.0, in_place=True)
+            self.step_idx = create_tensor(dtype='int64')
+            assign(input=self.global_step_idx, output=self.step_idx)
 
             for new_mem, mem_array in self.mem_link:
                 array_write(x=new_mem, i=self.step_idx, array=mem_array)
@@ -1487,6 +1493,10 @@ class DynamicRNN(object):
             arr, dtype = self.input_array[0]
             in0 = parent_block.create_var(
                 name=unique_name.generate('in0'), dtype=dtype)
+
+            # FIXME: The only use of in0 is for getting the batch_size for the
+            # subsequent fill_constant_batch_size_like. We should avoid the
+            # memory copy by changing read_from_array to share the array
             parent_block.append_op(
                 type='read_from_array',
                 inputs={'X': [arr],

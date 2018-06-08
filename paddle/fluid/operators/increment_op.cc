@@ -58,7 +58,7 @@ class IncrementOpMaker : public framework::OpProtoAndCheckerMaker {
     AddComment(R"DOC(
 Increment Operator.
 
-The equation is: 
+The equation is:
 $$Out = X + step$$
 
 )DOC");
@@ -71,10 +71,9 @@ class IncrementGradOpMaker : public framework::SingleGradOpDescMaker {
 
   std::unique_ptr<framework::OpDesc> Apply() const override {
     auto *grad_op = new framework::OpDesc();
-    grad_op->SetType("increment");
-    grad_op->SetInput("X", Output("Out"));
-    grad_op->SetOutput("Out", Input("X"));
-    grad_op->SetAttr("step", -boost::get<float>(GetAttr("step")));
+    grad_op->SetType("assign");
+    grad_op->SetInput("X", OutputGrad("Out"));
+    grad_op->SetOutput("Out", InputGrad("X"));
     return std::unique_ptr<framework::OpDesc>(grad_op);
   }
 };

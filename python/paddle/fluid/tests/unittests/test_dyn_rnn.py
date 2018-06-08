@@ -25,8 +25,12 @@ class TestDynRNN(unittest.TestCase):
         self.train_data = paddle.batch(
             paddle.dataset.imdb.train(self.word_dict),
             batch_size=self.BATCH_SIZE)
+        """
+        self.word_dict = {"abc": 0, "cde": 2}
+        self.BATCH_SIZE = 2
+        """
 
-    def test_plain_while_op(self):
+    def tttest_plain_while_op(self):
         main_program = fluid.Program()
         startup_program = fluid.Program()
 
@@ -123,6 +127,7 @@ class TestDynRNN(unittest.TestCase):
             sgd = fluid.optimizer.Adam(1e-3)
             sgd.minimize(loss=loss)
 
+        print main_program
         cpu = fluid.CPUPlace()
         exe = fluid.Executor(cpu)
         exe.run(startup_program)
