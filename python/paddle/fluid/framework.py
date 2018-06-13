@@ -113,6 +113,8 @@ def _debug_string_(proto, throw_on_error=True):
     """
     error_fields = list()
     if not proto.IsInitialized(error_fields) and throw_on_error:
+        import pdb
+        pdb.set_trace()
         raise ValueError("{0} are not initialized.\nThe message is {1}:\n".
                          format(error_fields, proto))
     return proto.__str__()

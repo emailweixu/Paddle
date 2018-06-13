@@ -77,18 +77,6 @@ def _infer_var_data_type_(grad_var_name, block):
         grad_var.set_dtype(core.VarDesc.VarType.FP32)
 
 
-def _some_in_set_(cands, s):
-    """
-    Test if some elements of 'cands' are in set 's'
-    """
-    if len(cands) == 0:
-        return False
-    for c in cands:
-        if c in s:
-            return True
-    return False
-
-
 def _strip_grad_suffix_(name):
     """
     Strip the grad suffix from the given varibale name
@@ -218,36 +206,14 @@ def _callback_lookup_(op):
         return None
 
 
-def _rename_grad_(block, grad_op_descs, grad_to_var, target_grad_map):
-    """
-    Rename the input and output arguments of the ops so that they are
-    different from existing variables in the block.
-    """
-    var_map = copy.copy(target_grad_map)
-    for op_desc in grad_op_descs:
-        for name in op_desc.input_arg_names():
-            if name in var_map:
-                op_desc.rename_input(name, var_map[name])
-
-        for name in op_desc.output_arg_names():
-            if block.desc.find_var(name.encode("ascii")):
-                new_name = unique_name.generate(name)
-                op_desc.rename_output(name, new_name)
-                var_map[name] = new_name
-
-    for g, ng in var_map.iteritems():
-        if g in grad_to_var:
-            grad_to_var[ng] = grad_to_var[g]
-            grad_to_var.pop(g)
-
-
 def _as_list(x):
     if x is None:
         return []
     return list(x) if isinstance(x, collections.Sequence) else [x]
 
 
-def _handle_unused_output_gradient_(grad_op_desc, grad_block, block_outputs):
+def _handle_empty_output_gradient_(grad_op_descs, grad_block, block_outputs,
+                                   target_grad_map):
     """
     Check if the output gradients are present.
     If not, we have two options:
@@ -259,26 +225,41 @@ def _handle_unused_output_gradient_(grad_op_desc, grad_block, block_outputs):
        (list[str]): newly create gradient variables for storing zero gradient
     """
 
-    new_vars = set()
-    for grad_var_name in grad_op_desc.input_arg_names():
-        if not grad_var_name.endswith(core.grad_var_suffix()):
-            continue
-        grad_var_name = grad_var_name.encode("ascii")
-        if grad_block.desc.has_var_recursive(grad_var_name):
-            continue
+    grad_vars = [] if grad_block.idx == 0 else block_outputs
+    grad_vars = map(_append_grad_suffix_, grad_vars)
+    grad_vars = set([target_grad_map.get(grad, grad) for grad in grad_vars])
+    op_descs = []
 
-        original_var_name = _strip_grad_suffix_(grad_var_name)
-        if original_var_name in block_outputs:
-            continue
+    for grad_op_desc in grad_op_descs:
+        for grad_var_name in grad_op_desc.input_arg_names():
+            if grad_var_name.find(core.grad_var_suffix()) == -1:
+                continue
+            grad_var_name = grad_var_name.encode("ascii")
+            if grad_var_name in grad_vars:
+                continue
 
-        # TODO: support option b in the above comment
-        grad_block.desc.var(grad_var_name)
-        new_vars.add(grad_var_name)
-        op_desc = _create_op_desc_("fill_zeros_like",
-                                   {"X": [original_var_name]},
-                                   {"Out": [grad_var_name]}, {})
-        grad_block.desc.append_op().copy_from(op_desc)
-    return new_vars
+            original_var_name = _strip_grad_suffix_(grad_var_name)
+
+            if original_var_name in block_outputs:
+                continue
+
+            grad_vars.add(grad_var_name)
+
+            print "add fill_zeros_like(X=%s, Out=%s) for %s" % (
+                original_var_name, grad_var_name, grad_op_desc.type())
+
+            # TODO: support option b in the above comment
+            op_desc = _create_op_desc_("fill_zeros_like",
+                                       {"X": [original_var_name]},
+                                       {"Out": [grad_var_name]}, {})
+            op_descs.append(op_desc)
+
+        op_descs.append(grad_op_desc)
+
+        for grad_var_name in grad_op_desc.output_arg_names():
+            grad_vars.add(grad_var_name)
+
+    return op_descs
 
 
 def _backward_sub_block(op, sub_block_inputs, sub_block_outputs, sub_block,
@@ -305,7 +286,7 @@ def _backward_sub_block(op, sub_block_inputs, sub_block_outputs, sub_block,
         if var.stop_gradient:
             sub_block_no_grad_set.add(var.name)
 
-    _gen_backward_block_(
+    _append_backward_ops_(
         sub_block,
         grad_sub_block,
         sub_block_outputs,
@@ -323,50 +304,8 @@ def _backward_sub_block(op, sub_block_inputs, sub_block_outputs, sub_block,
 from paddle.fluid.proto import framework_pb2
 
 
-def _create_gradient_variables_(grad_op_desc, grad_block, new_vars):
-    """
-    Create new gradient variables for a given op in grad_block if it is not
-    created yet. Newly created variable will be added to new_vars.
-    """
-    for grad_var_name in grad_op_desc.output_arg_names():
-        grad_var_name = grad_var_name.encode("ascii")
-        original_var_name = _strip_grad_suffix_(grad_var_name)
-        if grad_block.desc.has_var_recursive(
-                grad_var_name) or grad_var_name == core.empty_var_name():
-            continue
-        grad_block.desc.var(grad_var_name)
-        new_vars.add(grad_var_name)
-
-    print grad_op_desc.type()
-    for var_name in grad_op_desc.input_arg_names():
-        name = var_name.encode("ascii")
-        var_desc = grad_block.desc.find_var_recursive(name)
-        if var_desc:
-            print framework._debug_string_(
-                framework_pb2.VarDesc.FromString(
-                    str(var_desc.serialize_to_string())))
-        else:
-            print name
-
-    for var_name in grad_op_desc.output_arg_names():
-        name = var_name.encode("ascii")
-        var_desc = grad_block.desc.find_var_recursive(name)
-        if var_desc:
-            print framework._debug_string_(
-                framework_pb2.VarDesc.FromString(
-                    str(var_desc.serialize_to_string())))
-        else:
-            print name
-
-    # infer_shape and infer_type
-    grad_op_desc.infer_var_type(grad_block.desc)
-    grad_op_desc.infer_shape(grad_block.desc)
-    # ncclInit dones't need to set data_type
-    if grad_op_desc.type() == 'ncclInit':
-        return
-    for arg in grad_op_desc.output_arg_names():
-        if arg in new_vars:
-            _infer_var_data_type_(arg, grad_block)
+def var_desc_str(var_desc):
+    return framework_pb2.VarDesc.FromString(str(var_desc.serialize_to_string()))
 
 
 # FIXME: have general mechanism for deciding whether an operator can
@@ -375,7 +314,7 @@ def _create_gradient_variables_(grad_op_desc, grad_block, new_vars):
 _no_gradient_flow_op_ = ['fill_constant_batch_size_like', 'fill_zeros_like']
 
 
-def _gen_backward_block_(
+def _append_backward_ops_(
         block,
         grad_block,
         outputs,  # variable names
@@ -390,7 +329,7 @@ def _gen_backward_block_(
         (dict[str:str]): a map from original variable name to its gradient
         variable name.
     """
-    print "_gen_backward_block_"
+    print "_append_backward_ops_"
     print "inputs: ", inputs
     print "outputs: ", outputs
 
@@ -398,43 +337,7 @@ def _gen_backward_block_(
     # for variables in block
     grad_to_var = {}
 
-    input_names = set(inputs)
-    output_names = set(outputs)
-
-    relevant_op_flags = [True] * len(block.ops)
-    new_op_inputs = [[]] * len(block.ops)
-    new_op_outputs = [[]] * len(block.ops)
-
-    for i, op in enumerate(block.ops):
-        if op.type in _no_gradient_flow_op_:
-            relevant_op_flags[i] = False
-            continue
-        new_inputs = filter(lambda v: v in input_names and v not in no_grad_set,
-                            op.desc.input_arg_names())
-        if new_inputs:
-            for name in op.desc.output_arg_names():
-                if name not in no_grad_set:
-                    input_names.add(name)
-            new_op_inputs[i] = new_inputs
-        else:
-            relevant_op_flags[i] = False
-
-    for i, op in reversed(list(enumerate(block.ops))):
-        if op.type in _no_gradient_flow_op_:
-            continue
-        new_outputs = filter(
-            lambda v: v in output_names and v not in no_grad_set,
-            op.desc.output_arg_names())
-        if new_outputs:
-            for name in op.desc.input_arg_names():
-                if name not in no_grad_set:
-                    output_names.add(name)
-            new_op_outputs[i] = new_outputs
-        else:
-            relevant_op_flags[i] = False
-
-    op_path = [(block.ops[i], new_op_inputs[i], new_op_outputs[i])
-               for i in range(len(block.ops)) if relevant_op_flags[i]]
+    op_path = _find_op_path_(block, outputs, inputs, no_grad_set)
 
     grad_op_descs = zero_grad_ops
     program = block.program
@@ -465,15 +368,15 @@ def _gen_backward_block_(
     # different names.
     _rename_grad_(grad_block, grad_op_descs, grad_to_var, target_grad_map)
 
+    grad_op_descs = _handle_empty_output_gradient_(grad_op_descs, grad_block,
+                                                   outputs, target_grad_map)
+
     var_to_grad = dict([(v, k) for k, v in grad_to_var.iteritems()])
 
     # append op_desc in grad_op_descs to grad_block
     op_role_attr_name = core.op_proto_and_checker_maker.kOpRoleAttrName()
     backward = core.op_proto_and_checker_maker.OpRole.Backward
-    block_outputs = [] if block.idx == 0 else outputs
     for grad_op_desc in grad_op_descs:
-        new_vars = _handle_unused_output_gradient_(grad_op_desc, grad_block,
-                                                   block_outputs)
         op_desc = grad_block.desc.append_op()
         op_desc.copy_from(grad_op_desc)
         op_desc.set_attr(op_role_attr_name, backward)
@@ -482,10 +385,67 @@ def _gen_backward_block_(
             assert (isinstance(callbacks, list))
             for cb in callbacks:
                 cb(block=grad_block, context=grad_to_var)
-        _create_gradient_variables_(op_desc, grad_block, new_vars)
 
-    print "leaving gen_backward_block"
+    print "leaving _append_backward_ops_"
     return var_to_grad
+
+
+def _append_backward_vars_(block, start_op_idx, outputs):
+    """
+    Create new variables required by backward pass.
+
+    Args:
+        block(Block): the block where new variables will be created
+        start_op_idx(int): Only variables required by ops in
+            block.ops[start_op_idx : ] will be created
+    """
+
+    for op_idx in range(start_op_idx, block.desc.op_size()):
+        op_desc = block.desc.op(op_idx)
+        if op_desc.has_attr("sub_block"):
+            sub_block = block.program.block(op_desc.block_attr("sub_block"))
+            _append_backward_vars_(sub_block, 0, op_desc.output_arg_names())
+        new_vars = set()
+        # create new gradient variables
+        for grad_var_name in op_desc.output_arg_names():
+            grad_var_name = grad_var_name.encode("ascii")
+            if block.desc.has_var_recursive(
+                    grad_var_name) or grad_var_name == core.empty_var_name():
+                continue
+            v = block.desc.var(grad_var_name)
+            new_vars.add(grad_var_name)
+        # infer_shape and infer_type
+        op_desc.infer_var_type(block.desc)
+        op_desc.infer_shape(block.desc)
+        # ncclInit dones't need to set data_type
+        if op_desc.type() == 'ncclInit':
+            continue
+        for arg in op_desc.output_arg_names():
+            if arg in new_vars:
+                _infer_var_data_type_(arg, block)
+
+
+def _rename_grad_(block, grad_op_descs, grad_to_var, target_grad_map):
+    """
+    Rename the input and output arguments of the ops so that they are
+    different from existing variables in the block.
+    """
+    var_map = copy.copy(target_grad_map)
+    for op_desc in grad_op_descs:
+        for name in op_desc.input_arg_names():
+            if name in var_map:
+                op_desc.rename_input(name, var_map[name])
+
+        for name in op_desc.output_arg_names():
+            if block.desc.find_var(name.encode("ascii")):
+                new_name = unique_name.generate(name)
+                op_desc.rename_output(name, new_name)
+                var_map[name] = new_name
+
+    for g, ng in var_map.iteritems():
+        if g in grad_to_var:
+            grad_to_var[ng] = grad_to_var[g]
+            grad_to_var.pop(g)
 
 
 def _augment_no_grad_set_(no_grad_set, block):
@@ -590,15 +550,17 @@ def append_backward(loss, parameter_list=None, no_grad_set=None,
         })
     zero_grad_ops = [op_desc]
 
-    var_to_grad = _gen_backward_block_(
+    start_op_idx = root_block.desc.op_size()
+    var_to_grad = _append_backward_ops_(
         root_block,
         root_block,  # grad block is root block
         [loss.name],
-        parameters,
+        [],
         zero_grad_ops,
         no_grad_set,
         {},  # target_grad_map
         callbacks)
+    _append_backward_vars_(root_block, start_op_idx, [loss.name])
 
     program.sync_with_cpp()
 
@@ -620,6 +582,55 @@ def append_backward(loss, parameter_list=None, no_grad_set=None,
     _set_op_role_var_attr_(program, params_and_grads)
 
     return params_and_grads
+
+
+def _find_op_path_(block, outputs, inputs, no_grad_set):
+    """
+    Find the ops on the path from inputs to outputs. For each such op,
+    also find out all the inputs and output on the path.
+    Returns:
+        list[(op_desc, new_inputs, new_outputs)]
+    """
+    input_names = set(inputs)
+    output_names = set(outputs)
+
+    relevant_op_flags = [True] * len(block.ops)
+    new_op_inputs = [[]] * len(block.ops)
+    new_op_outputs = [[]] * len(block.ops)
+
+    for i, op in enumerate(block.ops):
+        if op.type in _no_gradient_flow_op_:
+            relevant_op_flags[i] = False
+            continue
+        new_inputs = filter(lambda v: v not in no_grad_set,
+                            op.desc.input_arg_names())
+        if inputs:
+            new_inputs = filter(lambda v: v in input_names, new_inputs)
+        if new_inputs:
+            for name in op.desc.output_arg_names():
+                if name not in no_grad_set:
+                    input_names.add(name)
+            new_op_inputs[i] = new_inputs
+        else:
+            relevant_op_flags[i] = False
+
+    for i, op in reversed(list(enumerate(block.ops))):
+        if op.type in _no_gradient_flow_op_:
+            continue
+        new_outputs = filter(
+            lambda v: v in output_names and v not in no_grad_set,
+            op.desc.output_arg_names())
+        if new_outputs:
+            for name in op.desc.input_arg_names():
+                if name not in no_grad_set:
+                    output_names.add(name)
+            new_op_outputs[i] = new_outputs
+        else:
+            relevant_op_flags[i] = False
+
+    op_path = [(block.ops[i], new_op_inputs[i], new_op_outputs[i])
+               for i in range(len(block.ops)) if relevant_op_flags[i]]
+    return op_path
 
 
 def calc_gradient(targets, inputs, target_gradients=None, no_grad_set=None):
@@ -693,7 +704,8 @@ def calc_gradient(targets, inputs, target_gradients=None, no_grad_set=None):
 
     target_names = [target.name for target in targets]
     input_names = [input.name for input in inputs]
-    var_to_grad = _gen_backward_block_(
+    start_op_idx = block.desc.op_size()
+    var_to_grad = _append_backward_ops_(
         block,
         block,  # grad block is the same as block
         target_names,
@@ -701,6 +713,7 @@ def calc_gradient(targets, inputs, target_gradients=None, no_grad_set=None):
         zero_grad_ops,
         no_grad_set,
         target_grad_map)
+    _append_backward_vars_(block, start_op_idx, target_names)
 
     prog.sync_with_cpp()
 

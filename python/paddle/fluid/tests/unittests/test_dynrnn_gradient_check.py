@@ -347,6 +347,7 @@ class TestSimpleMulWithMemory(SeedFixedTestCase):
         last = fluid.layers.sequence_pool(input=out, pool_type='last')
         loss = fluid.layers.mean(last)
         fluid.backward.append_backward(loss)
+        print fluid.default_main_program()
 
         cpu = fluid.CPUPlace()
         exe = fluid.Executor(cpu)

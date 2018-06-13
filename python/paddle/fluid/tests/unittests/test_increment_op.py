@@ -17,10 +17,10 @@ import numpy
 import unittest
 
 
-class TestAssignOp(op_test.OpTest):
+class TestIncrementOp(op_test.OpTest):
     def setUp(self):
         self.op_type = "increment"
-        x = numpy.random.random(size=(100, 10))
+        x = numpy.random.random(size=1)
         self.inputs = {'X': x}
         self.outputs = {'Out': x + 1}
 
