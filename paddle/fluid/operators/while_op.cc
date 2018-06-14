@@ -123,6 +123,7 @@ class WhileGradOp : public framework::OperatorBase {
       VLOG(3) << "Start backward at time_step "
               << cur_scope_iter - step_scopes->rbegin();
       framework::Scope &cur_scope = **cur_scope_iter;
+      std::set<std::string> linked_vars;
       // Link OG from outside to inside
       for (size_t i = 0; i < outside_og_names.size(); ++i) {
         auto outside_og_name = outside_og_names[i];
@@ -150,6 +151,7 @@ class WhileGradOp : public framework::OperatorBase {
           VLOG(8) << outside_og_name << " size = " << outside_array.size();
           inside_array.resize(outside_array.size());
 
+          linked_vars.insert(inside_og_name);
           for (size_t j = 0; j < inside_array.size(); ++j) {
             VLOG(8) << j << " " << outside_array[j].numel();
             if (outside_array[j].numel() != 0) {
@@ -181,6 +183,35 @@ class WhileGradOp : public framework::OperatorBase {
         //  local_var_names.end()) {
         //    continue;
         //  }
+
+        // If an inside_grad is linked with output grad,
+        // we should not do sum.
+        if (linked_vars.count(inside_grad_name)) {
+          auto &og_outside = detail::Ref(scope.FindVar(pg_names[param_id]),
+                                         "Cannot find Outside Gradient %s",
+                                         pg_names[param_id]);
+          auto &og_inside =
+              detail::Ref(cur_scope.Var(inside_grad_name),
+                          "Cannot find inside gradient %s", inside_grad_name);
+          auto &outside_array =
+              detail::Ref(og_outside.GetMutable<framework::LoDTensorArray>());
+          auto &inside_array =
+              detail::Ref(og_inside.GetMutable<framework::LoDTensorArray>());
+          if (inside_array.size() > outside_array.size()) {
+            outside_array.resize(inside_array.size());
+          }
+          for (size_t j = 0; j < inside_array.size(); ++j) {
+            VLOG(8) << j << " " << outside_array[j].numel();
+            if (inside_array[j].numel() == 0) {
+              continue;
+            }
+            if (outside_array[j].numel() == 0) {
+              outside_array[j].set_lod(inside_array[j].lod());
+              outside_array[j].ShareDataWith(inside_array[j]);
+            }
+          }
+          continue;
+        }
 
         // zero gradient variable in step 0
         if (cur_scope_iter == step_scopes->rbegin()) {

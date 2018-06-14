@@ -350,8 +350,9 @@ def _append_backward_ops_(
         # If the op has its own sub-block, deal with the sub-block first
         if op.has_attr("sub_block"):
             sub_block = program.block(op.block_attr("sub_block"))
-            grad_sub_block = _backward_sub_block(
-                op, new_op_inputs, new_op_outputs, sub_block, callbacks)
+            grad_sub_block = _backward_sub_block(op, new_op_inputs,
+                                                 op.desc.output_arg_names(),
+                                                 sub_block, callbacks)
             grad_sub_block_list.append(grad_sub_block.desc)
 
         # Getting op's corresponding grad_op
@@ -379,7 +380,10 @@ def _append_backward_ops_(
     for grad_op_desc in grad_op_descs:
         op_desc = grad_block.desc.append_op()
         op_desc.copy_from(grad_op_desc)
-        op_desc.set_attr(op_role_attr_name, backward)
+        attr_val = backward
+        if op_desc.has_attr(op_role_attr_name):
+            attr_val = op_desc.attr(op_role_attr_name) | int(backward)
+        op_desc.set_attr(op_role_attr_name, attr_val)
         grad_to_var["__current_op_desc__"] = op_desc
         if callbacks is not None:
             assert (isinstance(callbacks, list))

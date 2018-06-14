@@ -343,7 +343,13 @@ void Executor::RunPreparedContext(ExecutorPrepareContext* ctx, Scope* scope,
     scope->DeleteScope(local_scope);
   } else {
     // Delete the local scopes created in operators.
-    scope->DropKids();
+    // Why do we need to DropKids here? This causes error
+    // for nested while_op. The step scopes created by the inner
+    // while_op is dropped and cannot accessed by its corresponding
+    // while_grad_op and this causes memory problem because the step scope
+    // variable still keeps the pointers to the scopes which are dropped
+    // here.
+    // scope->DropKids();
   }
   if (FLAGS_benchmark) {
     VLOG(2) << "-------------------------------------------------------";
