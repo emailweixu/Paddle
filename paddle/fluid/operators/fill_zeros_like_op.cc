@@ -26,8 +26,6 @@ class FillZerosLikeOp : public framework::OperatorWithKernel {
                    "Input(X) of FillZerosLikeOp should not be null.");
     PADDLE_ENFORCE(ctx->HasOutput("Out"),
                    "Output(Out) of FillZerosLikeOp should not be null.");
-    ctx->SetOutputDim("Out", ctx->GetInputDim("X"));
-    ctx->ShareLoD("X", /*->*/ "Out");
   }
 };
 
@@ -39,7 +37,7 @@ class FillZerosLikeOpMaker : public framework::OpProtoAndCheckerMaker {
     AddComment(R"DOC(
 FillZerosLike Operator.
 
-Fill up a variable with zeros.
+Fill up a variable with zeros, supporting both LoDTensor and LoDTensorArray.
 The output will have the same size as the input.
 
 )DOC");
